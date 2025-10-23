@@ -67,12 +67,20 @@ export const App: React.FC = () => {
     return () => clearErrorTimer();
   }, [hideError, showError, clearErrorTimer]);
 
-  const filteredTodos =
-    filterStatus === FilterStatus.Active
-      ? todos.filter(todo => !todo.completed)
-      : filterStatus === FilterStatus.Completed
-        ? todos.filter(todo => todo.completed)
-        : todos;
+  let filteredTodos: Todo[];
+
+  switch (filterStatus) {
+    case FilterStatus.Active:
+      filteredTodos = todos.filter(todo => !todo.completed);
+      break;
+
+    case FilterStatus.Completed:
+      filteredTodos = todos.filter(todo => todo.completed);
+      break;
+
+    default:
+      filteredTodos = todos;
+  }
 
   const hasTodos = todos.length > 0;
   const activeTodosCount = todos.filter(todo => !todo.completed).length;
