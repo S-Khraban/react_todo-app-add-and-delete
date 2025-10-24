@@ -8,9 +8,14 @@ import { Notification } from './components/Notification';
 import { TodoList } from './components/TodoList';
 import { getFilteredTodos } from './utils/getFilteredTodos';
 
-export const App: React.FC = () => {
-  const shouldShowUserWarning = !USER_ID;
+const ERROR_MESSAGES = {
+  EMPTY_TITLE: 'Title should not be empty',
+  ADD_FAIL: 'Unable to add a todo',
+  DELETE_FAIL: 'Unable to delete a todo',
+  LOAD_FAIL: 'Unable to load todos',
+} as const;
 
+export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>(
@@ -19,7 +24,8 @@ export const App: React.FC = () => {
   const [title, setTitle] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
-  const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
+
+  const [pendingIds, setPendingIds] = useState<number[]>([]);
 
   const newTodoInputRef = useRef<HTMLInputElement>(null);
   const hideErrorTimeoutIdRef = useRef<number | null>(null);
@@ -56,7 +62,7 @@ export const App: React.FC = () => {
 
         setTodos(data);
       } catch {
-        showError('Unable to load todos');
+        showError(ERROR_MESSAGES.LOAD_FAIL);
       }
     })();
 
@@ -83,7 +89,7 @@ export const App: React.FC = () => {
     const trimmed = title.trim();
 
     if (!trimmed) {
-      showError('Title should not be empty');
+      showError(ERROR_MESSAGES.EMPTY_TITLE);
 
       return;
     }
@@ -96,7 +102,7 @@ export const App: React.FC = () => {
       setTodos(curr => [...curr, created]);
       setTitle('');
     } catch {
-      showError('Unable to add a todo');
+      showError(ERROR_MESSAGES.ADD_FAIL);
     } finally {
       setTempTodo(null);
       setIsAdding(false);
@@ -105,20 +111,15 @@ export const App: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    setPendingIds(prev => new Set(prev).add(id));
+    setPendingIds(prev => (prev.includes(id) ? prev : [...prev, id]));
+
     try {
       await deleteTodo(id);
       setTodos(curr => curr.filter(t => t.id !== id));
     } catch {
-      showError('Unable to delete a todo');
+      showError(ERROR_MESSAGES.DELETE_FAIL);
     } finally {
-      setPendingIds(prev => {
-        const next = new Set(prev);
-
-        next.delete(id);
-
-        return next;
-      });
+      setPendingIds(prev => prev.filter(x => x !== id));
       setTimeout(() => newTodoInputRef.current?.focus(), 0);
     }
   };
@@ -130,13 +131,7 @@ export const App: React.FC = () => {
       return;
     }
 
-    setPendingIds(prev => {
-      const next = new Set(prev);
-
-      completedIds.forEach(id => next.add(id));
-
-      return next;
-    });
+    setPendingIds(prev => Array.from(new Set([...prev, ...completedIds])));
 
     const results = await Promise.allSettled(
       completedIds.map(id => deleteTodo(id)),
@@ -156,23 +151,17 @@ export const App: React.FC = () => {
     });
 
     if (failedIds.length) {
-      showError('Unable to delete a todo');
+      showError(ERROR_MESSAGES.DELETE_FAIL);
     }
 
     setTodos(curr => curr.filter(t => !successIds.includes(t.id)));
 
-    setPendingIds(prev => {
-      const next = new Set(prev);
-
-      completedIds.forEach(id => next.delete(id));
-
-      return next;
-    });
+    setPendingIds(prev => prev.filter(id => !completedIds.includes(id)));
 
     setTimeout(() => newTodoInputRef.current?.focus(), 0);
   };
 
-  if (shouldShowUserWarning) {
+  if (!USER_ID) {
     return <UserWarning />;
   }
 
