@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import cn from 'classnames';
 import { UserWarning } from './UserWarning';
 import { USER_ID, getTodos, createTodo, deleteTodo } from './api/todos';
@@ -6,16 +6,14 @@ import type { Todo } from './types/Todo';
 import { Filter, FilterStatus } from './components/Filter';
 import { Notification } from './components/Notification';
 import { TodoList } from './components/TodoList';
+import { getFilteredTodos } from './utils/getFilteredTodos';
 
 export const App: React.FC = () => {
   const shouldShowUserWarning = !USER_ID;
 
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>(
-    FilterStatus.All,
-  );
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>(FilterStatus.All);
   const [title, setTitle] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
@@ -24,64 +22,42 @@ export const App: React.FC = () => {
   const newTodoInputRef = useRef<HTMLInputElement>(null);
   const hideErrorTimeoutIdRef = useRef<number | null>(null);
 
-  const clearErrorTimer = useCallback(() => {
+  const clearErrorTimer = () => {
     if (hideErrorTimeoutIdRef.current) {
       window.clearTimeout(hideErrorTimeoutIdRef.current);
       hideErrorTimeoutIdRef.current = null;
     }
-  }, []);
+  };
 
-  const hideError = useCallback(() => {
+  const hideError = () => {
     clearErrorTimer();
     setErrorMessage(null);
-  }, [clearErrorTimer]);
+  };
 
-  const showError = useCallback(
-    (message: string) => {
-      setErrorMessage(message);
-      clearErrorTimer();
-      hideErrorTimeoutIdRef.current = window.setTimeout(() => {
-        setErrorMessage(null);
-      }, 3000);
-    },
-    [clearErrorTimer],
-  );
+  const showError = (message: string) => {
+    setErrorMessage(message);
+    clearErrorTimer();
+    hideErrorTimeoutIdRef.current = window.setTimeout(() => {
+      setErrorMessage(null);
+    }, 3000);
+  };
 
   useEffect(() => {
     newTodoInputRef.current?.focus();
 
     (async () => {
       try {
-        hideError();
-        setIsLoading(true);
         const data = await getTodos();
-
         setTodos(data);
       } catch {
-        showError('Unable to load todos');
-      } finally {
-        setIsLoading(false);
+        setErrorMessage('Unable to load todos');
       }
     })();
 
     return () => clearErrorTimer();
-  }, [hideError, showError, clearErrorTimer]);
+  }, []);
 
-  let filteredTodos: Todo[];
-
-  switch (filterStatus) {
-    case FilterStatus.Active:
-      filteredTodos = todos.filter(todo => !todo.completed);
-      break;
-
-    case FilterStatus.Completed:
-      filteredTodos = todos.filter(todo => todo.completed);
-      break;
-
-    default:
-      filteredTodos = todos;
-  }
-
+  const filteredTodos = getFilteredTodos(todos, filterStatus);
   const hasTodos = todos.length > 0;
   const activeTodosCount = todos.filter(todo => !todo.completed).length;
 
@@ -94,15 +70,12 @@ export const App: React.FC = () => {
     setTimeout(() => newTodoInputRef.current?.focus(), 0);
   };
 
-  const handleNewTodoFormSubmit = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
+  const handleNewTodoFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = title.trim();
 
     if (!trimmed) {
       showError('Title should not be empty');
-
       return;
     }
 
@@ -110,7 +83,6 @@ export const App: React.FC = () => {
       setIsAdding(true);
       setTempTodo({ id: 0, title: trimmed, completed: false, userId: USER_ID });
       const created = await createTodo(trimmed);
-
       setTodos(curr => [...curr, created]);
       setTitle('');
     } catch {
@@ -132,9 +104,7 @@ export const App: React.FC = () => {
     } finally {
       setPendingIds(prev => {
         const next = new Set(prev);
-
         next.delete(id);
-
         return next;
       });
       setTimeout(() => newTodoInputRef.current?.focus(), 0);
@@ -143,29 +113,23 @@ export const App: React.FC = () => {
 
   const handleClearCompleted = async () => {
     const completedIds = todos.filter(t => t.completed).map(t => t.id);
-
     if (completedIds.length === 0) {
       return;
     }
 
     setPendingIds(prev => {
       const next = new Set(prev);
-
       completedIds.forEach(id => next.add(id));
-
       return next;
     });
 
-    const results = await Promise.allSettled(
-      completedIds.map(id => deleteTodo(id)),
-    );
+    const results = await Promise.allSettled(completedIds.map(id => deleteTodo(id)));
 
     const successIds: number[] = [];
     const failedIds: number[] = [];
 
     results.forEach((res, i) => {
       const id = completedIds[i];
-
       if (res.status === 'fulfilled') {
         successIds.push(id);
       } else {
@@ -181,9 +145,7 @@ export const App: React.FC = () => {
 
     setPendingIds(prev => {
       const next = new Set(prev);
-
       completedIds.forEach(id => next.delete(id));
-
       return next;
     });
 
