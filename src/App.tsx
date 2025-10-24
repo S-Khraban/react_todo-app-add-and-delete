@@ -50,7 +50,7 @@ export const App: React.FC = () => {
         const data = await getTodos();
         setTodos(data);
       } catch {
-        setErrorMessage('Unable to load todos');
+        showError('Unable to load todos');
       }
     })();
 
