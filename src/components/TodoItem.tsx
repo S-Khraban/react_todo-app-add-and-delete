@@ -8,52 +8,48 @@ type Props = {
   onDelete: (id: number) => void;
 };
 
-export const TodoItem: React.FC<Props> = React.memo(
-  ({ todo, isPending, onDelete }) => {
-    const isTemp = todo.id === 0;
+export const TodoItem: React.FC<Props> = ({ todo, isPending, onDelete }) => {
+  const isTemp = todo.id === 0;
 
-    return (
+  return (
+    <div
+      data-cy="Todo"
+      className={cn('todo item-enter-done', {
+        completed: todo.completed,
+      })}
+    >
+      <label className="todo__status-label" aria-label="Toggle todo status">
+        <input
+          data-cy="TodoStatus"
+          type="checkbox"
+          className="todo__status"
+          checked={todo.completed}
+          readOnly
+        />
+      </label>
+
+      <span data-cy="TodoTitle" className="todo__title">
+        {todo.title}
+      </span>
+
+      {!isTemp && (
+        <button
+          type="button"
+          className="todo__remove"
+          data-cy="TodoDelete"
+          onClick={() => onDelete(todo.id)}
+        />
+      )}
+
       <div
-        data-cy="Todo"
-        className={cn('todo item-enter-done', {
-          completed: todo.completed,
+        data-cy="TodoLoader"
+        className={cn('modal overlay', {
+          'is-active': isTemp || isPending,
         })}
       >
-        <label className="todo__status-label" aria-label="Toggle todo status">
-          <input
-            data-cy="TodoStatus"
-            type="checkbox"
-            className="todo__status"
-            checked={todo.completed}
-            readOnly
-          />
-        </label>
-
-        <span data-cy="TodoTitle" className="todo__title">
-          {todo.title}
-        </span>
-
-        {!isTemp && (
-          <button
-            type="button"
-            className="todo__remove"
-            data-cy="TodoDelete"
-            onClick={() => onDelete(todo.id)}
-          />
-        )}
-
-        <div
-          data-cy="TodoLoader"
-          className={cn('modal overlay', {
-            'is-active': isTemp || isPending,
-          })}
-        >
-          <div className="modal-background has-background-white-ter" />
-          <div className="loader" />
-        </div>
+        <div className="modal-background has-background-white-ter" />
+        <div className="loader" />
       </div>
-    );
-  },
-);
-
-TodoItem.displayName = 'TodoItem';
+    </div>
+  );
+};
